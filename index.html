@@ -6,9 +6,71 @@
     <title>Importateur emploi du temps UPEC</title>
 
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
+    <link href="3rd/bootstrap-application-wizard/bootstrap-wizard.css" rel="stylesheet">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="3rd/bootstrap-application-wizard/bootstrap-wizard.min.js"></script>
+    <script src="https://apis.google.com/js/client.js?onload=handleClientLoad"></script>
+
+    <script>
+      var authed = false;
+      var clientId = '75947514866-0cefecs55pomac4t58r5nqp6cdb5bod8.apps.googleusercontent.com';
+      var apiKey = 'AIzaSyDeznMWVdVrJE2TyqW5z4aOKI57zgU5GQk';
+
+      var scopes = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.scripts';
+
+      function handleClientLoad() {
+        gapi.client.setApiKey(apiKey);
+      }
+
+      $(function() {
+        var options = {
+          buttons: {
+            cancelText: 'Annuler',
+            nextText: 'Suivant',
+            backText: 'Précédent',
+            submitText: 'Terminer',
+            submittingText: 'Terminé'
+          },
+          keyboard: false,
+          backdrop: 'static'
+        };
+        var wizard = $("#wizard").wizard(options);
+
+        $("#button_install").on('click', function(e) {
+          wizard.show();
+          e.preventDefault();
+        });
+
+        $("#link_faq").on('click', function(e) {
+          wizard.close();
+          var url = location.href;
+          location.href = '#faq';
+          history.replaceState(null, null, url); 
+          e.preventDefault();
+        });
+
+        $("#button_auth").on('click', function(e) {
+          if (authed) {
+            e.preventDefault();
+            return;
+          }
+
+          gapi.auth.init(function onInit() {
+            gapi.auth.authorize({client_id: clientId, scope: scopes, immediate: false}, function handleAuthResult(authResult) {
+              if (authResult && !authResult.error) {
+                authed = true;
+                $('#button_auth').text('Accès accordé');
+              } else {
+                console.log('Auth failed');
+              }
+              e.preventDefault();
+            });
+          });
+        });
+      });
+    </script>
   </head>
 
   <body style="padding-top: 50px; padding-bottom: 20px;">
@@ -38,7 +100,7 @@
               Ce n'est pas toujours pratique d'aller consulter son emploi du temps sur l'ADE de l'UPEC. J'ai donc créé un outil qui permet, à partir
               d'un compte Google, d'importer automatiquement son emploi du temps dans un agenda Google. Ça ne prend que quelques étapes et un tout petit peu de technique, rien de bien compliqué.
             </p>
-            <p><a class="btn btn-primary btn-lg" href="#" role="button">Installer une 1<sup>ère</sup> fois/Réinstaller après un semestre fini</a></p>
+            <p><a class="btn btn-primary btn-lg" id="button_install" href="#" role="button">Installer une 1<sup>re</sup> fois/Réinstaller après un semestre terminé</a></p>
           </div>
           <div class="col-md-4">
             <img src="img/screenshot.gif" style="height: 400px;" class="img-responsive" alt="Capture d'écran">
@@ -62,7 +124,7 @@
       <p>
         Étant donné qu'il n'y a aucun coût de fonctionnement de mon côté, c'est totalement gratuit. Ce qui signifie qu'il s'agit d'un service bénévole et que je ne m'engage à rien. Je l'utilise au quotidien et tout fonctionne correctement, mais si quelque chose venait à dysfonctionner, je ne suis en aucun cas responsable. L'automatisme n'effectue en tout cas aucune action destructive : votre compte Google ne risque rien.
       </p>
-      <h3>Ça marche pas. Que faire ?</h3>
+      <h3>Ça ne marche pas. Que faire ?</h3>
       <p>
         Essayez de réinstaller l'automatisme, en suivant les instructions à la lettre, et en lisant bien attentivement chaque mail envoyé par l'automatisme. Si ça ne marche toujours pas, vous pouvez me contacter via la page Facebook ou par mail. Je ferais de mon mieux pour y répondre, sans aucune garantie toutefois.
       </p>
@@ -77,6 +139,21 @@
         </ul>
       </p>
       <hr>
+
+
+      <!-- Wizard start -->
+      <div class="wizard" id="wizard" data-title="Installation">
+        <div class="wizard-card" data-cardname="intro">
+          <h3>Bienvenue</h3>
+          Vous êtes sur le point d'installer l'importateur d'emploi du temps UPEC.<br>
+          Assurez-vous d'avoir lu la F.A.Q. pour bien comprendre comment ça fonctionne. <a href="#" id="link_faq">Cliquez ici pour la lire.</a>
+        </div>
+        <div class="wizard-card" data-cardname="card1">
+          <h3>Compte Google</h3>
+          Pour installer l'automatisme, nous avons besoin d'accéder à votre compte Google.<br><br>
+          <p><a class="btn btn-primary btn-lg" id="button_auth" href="#" role="button">Accorder l'accès</a></p>
+        </div>
+      </div>
 
       <footer>
         <p>&copy; Marvin Roger</p>
