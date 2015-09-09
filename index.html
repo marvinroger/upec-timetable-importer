@@ -11,21 +11,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script src="3rd/bootstrap-application-wizard/bootstrap-wizard.min.js"></script>
+    <script src="3rd/base64/base64.utf8.min.js"></script>
     <script src="https://apis.google.com/js/client.js?onload=handleClientLoad"></script>
 
     <script>
+      // Credentials
+
       var authed = false;
       var clientId = '75947514866-0cefecs55pomac4t58r5nqp6cdb5bod8.apps.googleusercontent.com';
       var apiKey = 'AIzaSyDeznMWVdVrJE2TyqW5z4aOKI57zgU5GQk';
-
       var scopes = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.scripts';
+
+      // Init
 
       function handleClientLoad() {
         gapi.client.setApiKey(apiKey);
       }
 
+      var version;
+
+      $.get('script/latest-version', function(res) {
+        version = res.replace('\n', '');
+        $('#label_latest_version').text('v' + version);
+      });
+
       $(function() {
         var options = {
+          contentWidth: 800,
+          contentHeight: 400,
           buttons: {
             cancelText: 'Annuler',
             nextText: 'Suivant',
@@ -38,22 +51,79 @@
         };
         var wizard = $("#wizard").wizard(options);
 
-        $("#button_install").on('click', function(e) {
-          wizard.show();
+        // Wizard - launch
+
+        $("#button_wizard").on('click', function(e) {
           e.preventDefault();
+          wizard.show();
         });
 
+        // Wizard - intro
+
         $("#link_faq").on('click', function(e) {
+          e.preventDefault();
           wizard.close();
           var url = location.href;
           location.href = '#faq';
           history.replaceState(null, null, url); 
-          e.preventDefault();
+        });
+
+        // Wizard - ids
+
+        $(document).on('click', '.wizard-next', function(e) {
+          if (wizard.getActiveCard().name === 'ids') {
+            $('#input_project_id').val('');
+            $('#input_resource_id').val('');
+            $('.wizard-next').attr('disabled', 'disabled');
+          }
+        });
+
+        var idsOk = { resource: false, project: false };
+        function idsTriggerCheck() {
+          if (idsOk.resource && idsOk.project) {
+            $('.wizard-next').removeAttr('disabled');
+          } else {
+            $('.wizard-next').attr('disabled', 'disabled');
+          }
+        }
+
+        $(document).on('keyup onpaste oninput', '#input_project_id', function(e) {
+          if ($('#input_project_id').val() != '') {
+            idsOk.project = true;
+          } else {
+            idsOk.project = false;
+          }
+
+          idsTriggerCheck();
+        });
+
+        $(document).on('keyup onpaste oninput', '#input_resource_id', function(e) {
+          if ($('#input_resource_id').val() != '') {
+            idsOk.resource = true;
+          } else {
+            idsOk.resource = false;
+          }
+
+          idsTriggerCheck();
+        });
+
+        // Wizard - auth
+
+        var projectId;
+        var resourceId;
+
+        $(document).on('click', '.wizard-next', function(e) {
+          if (wizard.getActiveCard().name === 'auth') {
+            projectId = $('#input_project_id').val();
+            resourceId = $('#input_resource_id').val();
+            $('.wizard-next').attr('disabled', 'disabled');
+          }
         });
 
         $("#button_auth").on('click', function(e) {
+          e.preventDefault();
+          $('#button_auth').attr('disabled', 'disabled');
           if (authed) {
-            e.preventDefault();
             return;
           }
 
@@ -62,12 +132,155 @@
               if (authResult && !authResult.error) {
                 authed = true;
                 $('#button_auth').text('Accès accordé');
+                $('#button_auth').removeClass('btn-primary');
+                $('#button_auth').addClass('btn-success');
+                $('.wizard-next').removeAttr('disabled');
               } else {
                 console.log('Auth failed');
               }
-              e.preventDefault();
             });
           });
+        });
+
+        // Wizard - prepare
+
+        var importerId;
+
+        $(document).on('click', '.wizard-next', function(e) {
+          if (wizard.getActiveCard().name === 'prepare') {
+            $('#part_agenda_id').hide();
+            $('#button_delete').hide();
+            $('.wizard-next').attr('disabled', 'disabled');
+            gapi.client.load('drive', 'v2', function() {
+              var request = gapi.client.drive.files.list({
+              'q': "mimeType='application/vnd.google-apps.script' and 'me' in owners"
+              });
+              request.then(function(res) {
+                res.result.items.forEach(function(item) {
+                  if (item.title === 'Importateur emploi du temps UPEC') {
+                    importerId = item.id;
+                  }
+                });
+
+                if (importerId) {
+                  $('#loading_prepare').text('Vous avez déjà un importateur installé. Vous devez le supprimer pour continuer.');
+                  $('#button_delete').show();
+                } else {
+                  $('#loading_prepare').text("Tout est prêt pour l'installation.");
+                  $('.wizard-next').removeAttr('disabled');
+                }
+              });
+            });
+          }
+        });
+
+        $(document).on('click', '#button_delete', function(e) {
+          e.preventDefault();
+          $('#button_delete').attr('disabled', 'disabled');
+          var request = gapi.client.drive.files.delete({
+            'fileId': importerId
+          });
+
+          request.then(function() {
+            $('#button_delete').hide();
+            $('#loading_prepare').hide();
+            $('#part_agenda_id').show();
+            $('.wizard-next').removeAttr('disabled');
+          });
+        });
+
+        // Wizard - install1
+
+        var agendaId;
+
+        $(document).on('click', '.wizard-next', function(e) {
+          if (wizard.getActiveCard().name === 'install1') {
+            agendaId = $('#input_agenda_id').val() || null;
+            $('.wizard-next').attr('disabled', 'disabled');
+            $('#loading_install1').hide();
+          }
+        });
+
+        var docId;
+
+        $(document).on('click', '#button_install', function(e) {
+          e.preventDefault();
+          $('#button_install').attr('disabled', 'disabled');
+          $.get('script/importer.json', function(script) {
+            $('#loading_install1').show();
+            
+            var data = {
+              "projectId": parseInt(projectId),
+              "resourcesId": parseInt(resourceId),
+              "calendarId": agendaId,
+              "colorPatterns": false
+            };
+
+            var base64data = Base64.encode(JSON.stringify(data));
+            script = script.replace('${DATA}', base64data);
+
+            var boundary = '-------314159265358979323846';
+            var delimiter = "\r\n--" + boundary + "\r\n";
+            var close_delim = "\r\n--" + boundary + "--";
+
+            var metadata = {
+              'title': 'Importateur emploi du temps UPEC',
+              'description': 'Importateur emploi du temps UPEC v' + version,
+              'mimeType': 'application/vnd.google-apps.script'
+            };
+
+            var base64script = Base64.encode(script);
+
+            var multipartScript = delimiter +
+              'Content-Type: application/json\r\n\r\n' +
+              JSON.stringify(metadata) +
+              delimiter +
+              'Content-Type: ' + 'application/vnd.google-apps.script+json' + '\r\n' +
+              'Content-Transfer-Encoding: base64\r\n' +
+              '\r\n' +
+              base64script +
+              close_delim;
+
+
+            var request = gapi.client.request({
+              'path': '/upload/drive/v2/files/',
+              'method': 'POST',
+              'params': {
+                uploadType: 'multipart',
+                convert: true
+              },
+              'headers': {
+                'Content-Type': 'multipart/mixed; boundary="' + boundary + '"'
+              },
+              'body': multipartScript
+            });
+
+            request.then(function(res) {
+              docId = res.result.id;
+              $('#button_install').hide();
+              $('#loading_install1').text('Prénstallé avec succès.');
+              $('.wizard-next').removeAttr('disabled');
+            });
+
+          }, 'text');
+        });
+        
+        // Wizard - install2
+
+        $(document).on('click', '.wizard-next', function(e) {
+          if (wizard.getActiveCard().name === 'install2') {
+            $('#button_doc_drive').attr('href', 'https://script.google.com/d/' + docId + '/edit?usp=drive_web');
+          }
+        });
+
+        // Wizard - end
+
+        $(document).on('click', '.wizard-next', function(e) {
+          if (wizard.getActiveCard().name === 'end') {
+            $(document).on('click', '.wizard-next', function(e) {
+              wizard.close();
+            });
+          }
         });
       });
     </script>
@@ -100,7 +313,8 @@
               Ce n'est pas toujours pratique d'aller consulter son emploi du temps sur l'ADE de l'UPEC. J'ai donc créé un outil qui permet, à partir
               d'un compte Google, d'importer automatiquement son emploi du temps dans un agenda Google. Ça ne prend que quelques étapes et un tout petit peu de technique, rien de bien compliqué.
             </p>
-            <p><a class="btn btn-primary btn-lg" id="button_install" href="#" role="button">Installer une 1<sup>re</sup> fois/Réinstaller après un semestre terminé</a></p>
+            <p>Dernière version : <span class="label label-info" id="label_latest_version">Chargement...</span></p>
+            <p><a class="btn btn-primary btn-lg" id="button_wizard" href="#" role="button">Installer une 1<sup>re</sup> fois/Réinstaller après un semestre terminé</a></p>
           </div>
           <div class="col-md-4">
             <img src="img/screenshot.gif" style="height: 400px;" class="img-responsive" alt="Capture d'écran">
@@ -148,10 +362,73 @@
           Vous êtes sur le point d'installer l'importateur d'emploi du temps UPEC.<br>
           Assurez-vous d'avoir lu la F.A.Q. pour bien comprendre comment ça fonctionne. <a href="#" id="link_faq">Cliquez ici pour la lire.</a>
         </div>
-        <div class="wizard-card" data-cardname="card1">
+
+        <div class="wizard-card" data-cardname="ids">
+          <h3>IDs ADE</h3>
+          Votre emploi du temps est lié à deux identifiants unique : l'un correspondant à l'année, l'autre à votre ressource. Il est nécessaire de les trouver.<br>
+          Pour cela, ouvrez d'abord l'ADE (la platforme d'emploi du temps de l'UPEC). Ne faites rien d'autres, lisez la suite.<br><br>
+
+          <p><a class="btn btn-primary btn-lg" id="button_ade" target="_blank" href="https://ade.u-pec.fr/direct/" role="button">Aller sur l'ADE</a></p><br>
+
+          Pour trouver vos identifiants, copiez-collez le morceau de code ci-dessous dans la barre d'adresse de la page ADE. Un petit cadre apparaîtera en haut à droite.<br>
+          <span class="label label-warning">Attention !</span> Parfois, en copiant-collant, le <span class="label label-default">javascript:</span> du début disparaît. Si c'est le cas, rajoutez le dans la barre d'adresse avant de valider.<br><br>
+
+          <input class="form-control" type="text" style="cursor: text;" value="javascript:void%20function(){var%20e=document.createElement(%22script%22);e.src=%22//cdn.rawgit.com/marvinroger/upec-timetable-api/master/script/upec-ade-ids-finder.user.js%22,e.onload=e.onreadystatechange=function(){var%20e=this.readyState;e%26%26%22loaded%22!==e%26%26%22complete%22!==e||console.log(%22UPEC%20ADE%20IDs%20finder%20loaded%22)},document.getElementsByTagName(%22head%22)[0].appendChild(e)}();" readonly><br>
+
+          Naviguez comme vous le faites habituellement jusqu'à votre emploi du temps. Renseignez ci-dessous les identifiants indiqués dans le cadre en haut à droite :<br><br>
+
+          <div class="form-group">
+            <label for="input_project_id">ID projet</label>
+            <input type="number" class="form-control" id="input_project_id" placeholder="ID">
+          </div>
+
+          <div class="form-group">
+            <label for="input_resource_id">ID ressource</label>
+            <input type="number" class="form-control" id="input_resource_id" placeholder="ID">
+          </div>
+        </div>
+
+        <div class="wizard-card" data-cardname="auth">
           <h3>Compte Google</h3>
-          Pour installer l'automatisme, nous avons besoin d'accéder à votre compte Google.<br><br>
+          Pour installer l'automatisme (appelé script), nous avons besoin d'accéder au Drive de votre compte Google.<br><br>
           <p><a class="btn btn-primary btn-lg" id="button_auth" href="#" role="button">Accorder l'accès</a></p>
+        </div>
+
+        <div class="wizard-card" data-cardname="prepare">
+          <h3>Préparation</h3>
+          <span id="loading_prepare">Veuillez patienter...</span><br><br>
+
+          <p><a class="btn btn-danger" id="button_delete" href="#" role="button">Supprimer l'importateur existant</a></p>
+
+          <span id="part_agenda_id">
+            Il s'agit d'une réinstallation, vous avez donc déjà reçu un mail de confirmation d'installation contenant votre identifiant agenda. Renseignez le ci-dessous. Si vous l'avez perdu, ce n'est pas grave, vous pouvez continuer. Un nouvel agenda sera alors créé.<br><br>
+
+            <div class="form-group">
+              <label for="input_agenda_id">ID agenda</label>
+              <input type="text" class="form-control" id="input_agenda_id" placeholder="ID">
+            </div>
+          </span>
+        </div>
+
+        <div class="wizard-card" data-cardname="install1">
+          <h3>Préinstallation</h3>
+          <span id="loading_install1">Veuillez patienter...</span><br><br>
+          <p><a class="btn btn-success" id="button_install" href="#" role="button">Préinstaller l'importateur</a></p>
+        </div>
+
+        <div class="wizard-card" data-cardname="install2">
+          <h3>Installation</h3>
+          L'importateur est préinstallé sur votre compte Google Drive. Il faut maintenant l'installer.
+          Pour cela, cliquez sur le bouton ci-dessous, puis sur <span class="label label-default">Exécuter</span> &gt; <span class="label label-default">installer</span><br><br>
+
+          <p><a class="btn btn-primary" id="button_doc_drive" target="_blank" href="#" role="button">Ouvrir l'importateur</a></p><br>
+
+          Acceptez toutes les autorisations demandées, puis patientez jusqu'à ce que le cadre <span class="label label-warning">Exécution de la fonction installer...</span> disparaisse.
+        </div>
+
+        <div class="wizard-card" data-cardname="end">
+          <h3>Terminé !</h3>
+          Vous recevrez très rapidement un mail dans la boîte Gmail correspondant à votre compte Google. Il contient toutes les informations relative au fonctionnement de l'importateur.
         </div>
       </div>
 
