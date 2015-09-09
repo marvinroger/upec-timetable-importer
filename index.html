@@ -5,6 +5,19 @@
 
     <title>Importateur emploi du temps UPEC</title>
 
+    <meta name="description" content="Simplifiez vous la vie étudiante à l'UPEC en important automatiquement chaque semaine votre emploi du temps dans votre agenda Google.">
+
+    <meta property="og:title" content="Importateur emploi du temps UPEC">
+    <meta property="og:type" content="non_profit">
+    <meta property="og:url" content="https://marvinroger.github.io/upec-timetable-importer">
+    <meta property="og:image" content="https://marvinroger.github.io/upec-timetable-importer/img/logo.png">
+    <meta property="og:site_name" content="Importateur emploi du temps UPEC">
+    <meta property="og:description" content="Simplifiez vous la vie étudiante à l'UPEC en important automatiquement chaque semaine votre emploi du temps dans votre agenda Google.">
+
+    <link rel="icon" type="image/png" href="img/favicon/favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="img/favicon/favicon-16x16.png" sizes="16x16">
+
+
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
     <link href="3rd/bootstrap-application-wizard/bootstrap-wizard.css" rel="stylesheet">
 
@@ -88,21 +101,13 @@
         }
 
         $(document).on('keyup onpaste oninput', '#input_project_id', function(e) {
-          if ($('#input_project_id').val() != '') {
-            idsOk.project = true;
-          } else {
-            idsOk.project = false;
-          }
+          idsOk.project = true;
 
           idsTriggerCheck();
         });
 
         $(document).on('keyup onpaste oninput', '#input_resource_id', function(e) {
-          if ($('#input_resource_id').val() != '') {
-            idsOk.resource = true;
-          } else {
-            idsOk.resource = false;
-          }
+          idsOk.resource = true;
 
           idsTriggerCheck();
         });
@@ -163,7 +168,6 @@
                 });
 
                 if (importerId) {
-                  alert(importerId);
                   $('#loading_prepare').text('Vous avez déjà un importateur installé. Vous devez le supprimer pour continuer.');
                   $('#button_delete').show();
                 } else {
@@ -309,6 +313,7 @@
       <div class="container">
         <div class="row">
           <div class="col-md-8">
+            <img src="img/logo.png" alt="Logo" style="width: 128px; float: left; margin-bottom: 10px; margin-right: 20px;">
             <h1>L'emploi du temps UPEC, simplifié</h1>
             <p>
               Ce n'est pas toujours pratique d'aller consulter son emploi du temps sur l'ADE de l'UPEC. J'ai donc créé un outil qui permet, à partir
@@ -333,7 +338,7 @@
       </p>
       <h3>Une fois installé, y a plus rien à faire ?</h3>
       <p>
-        L'automatisme doit être réinstallé à chaque fin de semestre. C'est incontournable, puisque sur ADE vous changez de catégorie toutes les fins de semestre.
+        L'automatisme doit être réinstallé à chaque fois que vous changez de ressource dans ADE. Pour certains, elle change tous les semestres, pour d'autres tous les ans. Pour faire simple : si, sur ADE, votre emploi du temps change de groupe (par exemple de L1 - second semestre à L2 - premier semestre), vous devez réinstaller l'automatisme, sans quoi l'importation réussira, mais n'importera rien.
       </p>
       <h3>Combien ça coûte ?</h3>
       <p>
@@ -345,6 +350,11 @@
       </p>
       <p><a class="btn btn-default" href="https://www.facebook.com/importateuremploidutempsupec" role="button">Aller vers la page Facebook &raquo;</a></p>
       <p><a class="btn btn-default" href="mailto:importateuremploidutempsupec@marvinroger.fr" role="button">Envoyer un mail à importateuremploidutempsupec@marvinroger.fr &raquo;</a></p>
+      <h3>L'emploi du temps n'apparaît pas sur mon portable/ordinateur ? Comment définir une notification avant chaque cours ?</h3>
+      <p>
+        L'emploi du temps ne s'importe pas sur votre agenda Google par défaut, mais dans un nouvel agenda nommé <i>Emploi du temps UPEC</i>. Souvent, il est nécessaire d'aller dans les paramètres de votre application agenda pour synchroniser le nouvel agenda.<br><br>
+        Dans les paramètres du nouvel agenda, vous pourrez également définir qu'une notification s'affiche 30 minutes avant le début de chaque cours, par exemple.
+      </p>
       <h3>Comment t'as fait ça ?</h3>
       <p>
         C'est de la programmation. Si ça vous intéresse, tout est open-source, vous pouvez jeter un coup d'oeil et éventuellement participer au code :<br>
